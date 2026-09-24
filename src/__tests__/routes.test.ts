@@ -13,16 +13,13 @@ jest.mock("../lib/registry", () => ({
   updateImpactScore: jest.fn(),
   getTotalProjects: jest.fn(),
 }));
-// The admin router reads config.ADMIN_API_KEY at import time, so a plain env
-// var set later in a test never reaches it — mock the config module instead.
-// MAX_POWER_KW is included because the real IoT route reads it to size the
-// simulated solar readings.
-jest.mock("../config", () => ({
-  config: {
-    ADMIN_API_KEY: "test-key",
-    MAX_POWER_KW: 1000,
-  },
-}));
+// config snapshots env vars at import time, so setting process.env later has no
+// effect on the middleware; keep the real config (iot needs MAX_POWER_KW etc.)
+// and only override the admin key.
+jest.mock("../config", () => {
+  const actual = jest.requireActual("../config");
+  return { config: { ...actual.config, ADMIN_API_KEY: "test-key" } };
+});
 
 const ADMIN_API_KEY = "test-key";
 const authHeader = { Authorization: `Bearer ${ADMIN_API_KEY}` };
@@ -42,15 +39,12 @@ describe("HTTP integration", () => {
   let app: Express;
 
   beforeEach(() => {
+    process.env.ADMIN_API_KEY = ADMIN_API_KEY;
     app = buildApp();
     jest.clearAllMocks();
     resetIdempotencyState();
     (registry.updateImpactScore as jest.Mock).mockResolvedValue("tx-hash");
     (registry.getTotalProjects as jest.Mock).mockResolvedValue(2);
-  });
-
-  afterEach(() => {
-    delete process.env.ADMIN_API_KEY;
   });
 
   describe("GET /health", () => {

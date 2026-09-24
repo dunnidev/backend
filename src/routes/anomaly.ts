@@ -4,9 +4,10 @@ import {
   configureAnomalyDetection,
   getAnomalyConfig,
   clearHistory,
+  AnomalyConfig,
 } from "../lib/anomaly";
 import { getSolarData, getSatelliteData } from "./iot";
-import { parseProjectId } from "../middleware/errors";
+import { parseProjectId, badRequest } from "../middleware/errors";
 
 const router = Router();
 
@@ -24,8 +25,20 @@ router.get("/:id", (req: Request, res: Response, next: NextFunction) => {
     const satellite = getSatelliteData(projectId);
 
     const config: Record<string, number> = {};
-    if (req.query.sensitivity) config.sensitivityZScore = Number(req.query.sensitivity);
-    if (req.query.window) config.trendWindowSize = Number(req.query.window);
+    if (req.query.sensitivity) {
+      const sensitivity = Number(req.query.sensitivity);
+      if (!Number.isFinite(sensitivity) || sensitivity <= 0) {
+        throw badRequest("sensitivity must be a finite positive number");
+      }
+      config.sensitivityZScore = sensitivity;
+    }
+    if (req.query.window) {
+      const window = Number(req.query.window);
+      if (!Number.isFinite(window) || window <= 0) {
+        throw badRequest("window must be a finite positive number");
+      }
+      config.trendWindowSize = window;
+    }
 
     const result = detectAnomalies(
       projectId,
@@ -56,13 +69,20 @@ router.get("/", (_req: Request, res: Response) => {
  * PUT /v1/anomaly/config
  * Update anomaly detection sensitivity and window settings.
  * Body: { sensitivityZScore?, trendWindowSize?, trendDeviationPct?, minBaseline? }
+ * Only the keys present in the body are applied; the rest keep their current values.
  */
 router.put("/config", (req: Request, res: Response) => {
-  const { sensitivityZScore, trendWindowSize, trendDeviationPct, minBaseline } = req.body as Record<
-    string,
-    number
-  >;
-  configureAnomalyDetection({ sensitivityZScore, trendWindowSize, trendDeviationPct, minBaseline });
+  const body = (req.body ?? {}) as Record<string, unknown>;
+  const update: Partial<AnomalyConfig> = {};
+  for (const key of [
+    "sensitivityZScore",
+    "trendWindowSize",
+    "trendDeviationPct",
+    "minBaseline",
+  ] as const) {
+    if (body[key] !== undefined) update[key] = body[key] as number;
+  }
+  configureAnomalyDetection(update);
   res.json({ ok: true, config: getAnomalyConfig() });
 });
 
@@ -74,6 +94,7 @@ router.put("/config", (req: Request, res: Response) => {
  */
 const clearAnomalyHistory = (req: Request, res: Response, next: NextFunction) => {
   try {
+    // `/history` has no `:id` param, which means "clear every project".
     const id = req.params.id ? parseProjectId(req.params.id, "project id") : undefined;
     clearHistory(id);
     res.json({ ok: true, cleared: id ?? "all" });

@@ -84,6 +84,13 @@ function buildConfig() {
     ADMIN_API_KEY: process.env.ADMIN_API_KEY || "",
     WS_AUTH_TOKEN: process.env.WS_AUTH_TOKEN || "",
 
+    /** Database connection */
+    DB_HOST: optionalEnv("DB_HOST", "localhost"),
+    DB_PORT: numEnv("DB_PORT", 5432),
+    DB_NAME: optionalEnv("DB_NAME", ""),
+    DB_USER: optionalEnv("DB_USER", "postgres"),
+    DB_PASSWORD: optionalEnv("DB_PASSWORD", ""),
+
     /** Connection pool */
     DB_POOL_MIN: numEnv("DB_POOL_MIN", 2),
     DB_POOL_MAX: numEnv("DB_POOL_MAX", 10),
@@ -114,6 +121,9 @@ function buildConfig() {
 
     /** IoT max power output (kW) */
     MAX_POWER_KW: numEnv("MAX_POWER_KW", 1000),
+
+    /** Idempotency */
+    IDEMPOTENCY_TTL_MS: numEnv("IDEMPOTENCY_TTL_MS", 3_600_000),
 
     /** Cron */
     CRON_TIMEZONE: optionalEnv("CRON_TIMEZONE", "UTC"),
@@ -183,5 +193,11 @@ export function validateRequiredEnv(): void {
  */
 export function initEnv() {
   validateRequiredEnv();
+  // Initialize API key roles from environment variables
+  // This must be called before any routes that use role-based auth
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { loadApiKeysFromEnv } = require("./lib/apiKeyRoles");
+  loadApiKeysFromEnv();
+
   return buildConfig();
 }

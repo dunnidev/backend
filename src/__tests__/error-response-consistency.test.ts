@@ -8,6 +8,12 @@ import { getHealth } from "../lib/health";
 jest.mock("../lib/registry", () => ({
   updateImpactScore: jest.fn(),
   getTotalProjects: jest.fn(),
+  RpcDegradedError: class RpcDegradedError extends Error {
+    constructor(message?: string) {
+      super(message ?? "RPC is degraded");
+      this.name = "RpcDegradedError";
+    }
+  },
 }));
 // Note: the IoT router is deliberately NOT mocked — this suite verifies the
 // real validation path returns structured errors, which an auto-mock router

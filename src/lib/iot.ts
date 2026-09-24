@@ -1,7 +1,7 @@
 import { logger } from "./logger";
 import { config } from "../config";
 
-const MAX_POWER_KW = config.MAX_POWER_KW;
+const MAX_POWER_KW = config.MAX_POWER_KW || 1000;
 const DEFAULT_EFFICIENCY_PCT = 60;
 const DEFAULT_FOREST_DENSITY_PCT = 50;
 

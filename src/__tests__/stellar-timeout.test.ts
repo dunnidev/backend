@@ -46,9 +46,9 @@ describe("signAndSubmit timeout behavior", () => {
       sign: jest.fn(),
     });
     client = {
+      getLedgerEntries: jest.fn().mockResolvedValue({ entries: [] }),
       sendTransaction: jest.fn(),
       getTransaction: jest.fn(),
-      getLedgerEntries: jest.fn().mockResolvedValue({ entries: [] }),
     } as unknown as rpc.Server;
     // Speed up the polling delay from 1500ms to 10ms
     global.setTimeout = ((fn: () => void) => {

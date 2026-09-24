@@ -7,10 +7,19 @@ import * as registry from "../lib/registry";
 import * as iot from "../routes/iot";
 import * as scoring from "../lib/scoring";
 
-jest.mock("../lib/registry", () => ({
-  updateImpactScore: jest.fn(),
-  getTotalProjects: jest.fn(),
-}));
+jest.mock("../lib/registry", () => {
+  class RpcDegradedError extends Error {
+    constructor(message?: string) {
+      super(message ?? "RPC is degraded");
+      this.name = "RpcDegradedError";
+    }
+  }
+  return {
+    updateImpactScore: jest.fn(),
+    getTotalProjects: jest.fn(),
+    RpcDegradedError,
+  };
+});
 jest.mock("../routes/iot");
 jest.mock("../lib/scoring");
 jest.mock("../config", () => ({
@@ -33,6 +42,7 @@ describe("admin /update-scores response shape", () => {
   let app: Express;
 
   beforeEach(() => {
+    resetIdempotencyState();
     app = buildApp();
     jest.clearAllMocks();
     resetIdempotencyState();
@@ -51,10 +61,6 @@ describe("admin /update-scores response shape", () => {
     });
     (registry.updateImpactScore as jest.Mock).mockResolvedValue("tx-hash");
     (registry.getTotalProjects as jest.Mock).mockResolvedValue(2);
-  });
-
-  afterEach(() => {
-    delete process.env.ADMIN_API_KEY;
   });
 
   it("response has updated field (number)", async () => {
